@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  passwordHash  String          @map("password_hash")
+  name          String?
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  preferences   UserPreference?
+  trips         Trip[]
+  participants  TripParticipant[]
+
+  @@map("users")
+}
+
+model UserPreference {
+  id                String   @id @default(uuid())
+  userId            String   @unique @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Trip preferences
+  tripLength        String   @map("trip_length") // 'short', 'long', 'day', 'weekend'
+  driverStatus      String   @map("driver_status") // 'driver', 'passenger', 'both'
+  hasCar            Boolean  @map("has_car")
+  carType           String?  @map("car_type") // 'ev', 'gas', 'hybrid'
+
+  // Food preferences
+  foodPreference    String   @map("food_preference") // 'pitstop_always', 'pitstop_sometimes', 'pitstop_never'
+  mealType          String   @map("meal_type") // 'sandwich', 'meal', 'flexible'
+  eatLocation       String   @map("eat_location") // 'stop', 'car', 'flexible'
+
+  // Experience preferences
+  scenicPreference  Int      @map("scenic_preference") // 1-5 scale (1=fastest route, 5=most scenic)
+  natureLover       Boolean  @map("nature_lover")
+  sightseeing       Boolean
+
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("user_preferences")
+}
+
+model Trip {
+  id                String    @id @default(uuid())
+  userId            String    @map("user_id")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  destination       String
+  destinationLat    Float     @map("destination_lat")
+  destinationLng    Float     @map("destination_lng")
+
+  itineraryData     Json      @map("itinerary_data") // Stores route, stops, etc.
+  estimatedCost     Float     @map("estimated_cost")
+  distance          Float     // in miles
+  duration          Int       // in minutes
+
+  status            String    @default("planned") // 'planned', 'ongoing', 'completed', 'cancelled'
+  scheduledDate     DateTime? @map("scheduled_date")
+
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  participants      TripParticipant[]
+
+  @@map("trips")
+}
+
+model TripParticipant {
+  id        String   @id @default(uuid())
+  tripId    String   @map("trip_id")
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status    String   @default("invited") // 'invited', 'accepted', 'declined'
+  role      String   @default("passenger") // 'driver', 'passenger'
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tripId, userId])
+  @@map("trip_participants")
+}
